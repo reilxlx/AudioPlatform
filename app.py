@@ -171,6 +171,160 @@ def asr_upload():
         logger.error(f"处理请求失败: {str(e)}")
         return jsonify(error_response), 500
 
+# 新增: 单声道实时语音识别接口 (JSON格式)
+@app.route('/api/v1/mono-asr', methods=['POST'])
+def mono_asr_json():
+    """处理JSON格式的单声道实时语音识别请求"""
+    try:
+        data = request.get_json()
+        
+        # 记录请求信息
+        logger.log_request(data, '/api/v1/mono-asr')
+        
+        if not data or 'audio_data' not in data:
+            error_response = {
+                'status': 'error',
+                'message': '缺少音频数据'
+            }
+            logger.error(f"请求错误: 缺少音频数据")
+            return jsonify(error_response), 400
+        
+        # 获取参数
+        audio_data = data['audio_data']
+        audio_format = data.get('audio_format', 'wav')
+        
+        logger.info(f"单声道识别请求: format={audio_format}")
+        
+        # 解码base64音频数据
+        try:
+            audio_bytes = base64.b64decode(audio_data)
+            logger.info(f"Base64解码成功，音频大小: {len(audio_bytes)} 字节")
+        except Exception as e:
+            error_response = {
+                'status': 'error',
+                'message': f'Base64解码失败: {str(e)}'
+            }
+            logger.error(f"Base64解码失败: {str(e)}")
+            return jsonify(error_response), 400
+        
+        # 创建会话目录
+        session_dir = temp_manager.create_session_dir()
+        logger.info(f"创建会话目录: {session_dir}")
+        
+        # 保存原始音频到会话目录
+        original_filename = f"original-mono.{audio_format}"
+        file_path = temp_manager.save_audio_file(audio_bytes, session_dir, original_filename)
+        logger.info(f"保存原始音频到: {file_path}")
+        
+        # 直接调用ASR引擎进行识别，不进行说话人分离等处理
+        logger.info("直接调用ASR引擎进行单声道识别")
+        segments = asr_engine.recognize(file_path)
+        
+        # 生成总结文件
+        summary_path = os.path.join(session_dir, "mono_asr_summary.txt")
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            for segment in segments:
+                f.write(f"{segment['start_time']:.1f}s - {segment['end_time']:.1f}s: {segment['text']}\n")
+        logger.info(f"单声道识别摘要已保存至: {summary_path}")
+        
+        # 保存最终结果为易读的JSON格式
+        final_results_path = os.path.join(session_dir, "mono_asr_results.json")
+        with open(final_results_path, 'w', encoding='utf-8') as f:
+            json.dump(segments, f, ensure_ascii=False, indent=2)
+        logger.info(f"最终结果已保存至: {final_results_path}")
+        
+        # 记录响应信息
+        response_data = {
+            'status': 'success',
+            'data': {
+                'transcript': segments
+            }
+        }
+        logger.log_response(response_data, '/api/v1/mono-asr')
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        error_response = {
+            'status': 'error',
+            'message': str(e)
+        }
+        logger.error(f"处理请求失败: {str(e)}")
+        return jsonify(error_response), 500
+
+# 新增: 单声道实时语音识别接口 (文件上传格式)
+@app.route('/api/v1/mono-asr/upload', methods=['POST'])
+def mono_asr_upload():
+    """处理表单上传的单声道实时语音识别请求"""
+    try:
+        # 记录请求信息
+        logger.log_request({"form": request.form, "files": "包含音频文件"}, '/api/v1/mono-asr/upload')
+        
+        if 'audio_file' not in request.files:
+            error_response = {
+                'status': 'error',
+                'message': '缺少音频文件'
+            }
+            logger.error(f"请求错误: 缺少音频文件")
+            return jsonify(error_response), 400
+        
+        audio_file = request.files['audio_file']
+        if audio_file.filename == '':
+            error_response = {
+                'status': 'error',
+                'message': '未选择文件'
+            }
+            logger.error(f"请求错误: 未选择文件")
+            return jsonify(error_response), 400
+        
+        logger.info(f"接收到单声道音频文件: {audio_file.filename}")
+        
+        # 创建会话目录
+        session_dir = temp_manager.create_session_dir()
+        logger.info(f"创建会话目录: {session_dir}")
+        
+        # 保存上传的文件
+        filename = secure_filename(audio_file.filename)
+        file_path = os.path.join(session_dir, filename)
+        audio_file.save(file_path)
+        logger.info(f"文件已保存到: {file_path}")
+        
+        # 直接调用ASR引擎进行识别，不进行说话人分离等处理
+        logger.info("直接调用ASR引擎进行单声道识别")
+        segments = asr_engine.recognize(file_path)
+        
+        # 生成总结文件
+        summary_path = os.path.join(session_dir, "mono_asr_summary.txt")
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            for segment in segments:
+                f.write(f"{segment['start_time']:.1f}s - {segment['end_time']:.1f}s: {segment['text']}\n")
+        logger.info(f"单声道识别摘要已保存至: {summary_path}")
+        
+        # 保存最终结果为易读的JSON格式
+        final_results_path = os.path.join(session_dir, "mono_asr_results.json")
+        with open(final_results_path, 'w', encoding='utf-8') as f:
+            json.dump(segments, f, ensure_ascii=False, indent=2)
+        logger.info(f"最终结果已保存至: {final_results_path}")
+        
+        # 记录响应信息
+        response_data = {
+            'status': 'success',
+            'data': {
+                'transcript': segments
+            }
+        }
+        logger.log_response(response_data, '/api/v1/mono-asr/upload')
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        error_response = {
+            'status': 'error',
+            'message': str(e)
+        }
+        logger.error(f"处理请求失败: {str(e)}")
+        return jsonify(error_response), 500
+
 def process_audio(file_path, mode, session_dir=None):
     """处理音频文件并返回识别结果
     

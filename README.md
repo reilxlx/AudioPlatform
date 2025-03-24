@@ -4,6 +4,7 @@
 
 ## 功能特点
 
+- 支持单声道音频的实时语音识别
 - 支持双声道音频的语音识别
 - 提供四种识别模式：整体识别、分轨识别、alignment片段识别和话者分离片段识别
 - 说话人区分（speakerA/speakerB）
@@ -62,7 +63,53 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 
 ## API接口文档
 
-### 1. 语音识别接口（JSON）
+### 1. 单声道实时语音识别接口（JSON）
+
+- **URL**: `/api/v1/mono-asr`
+- **方法**: POST
+- **Content-Type**: application/json
+- **请求体**:
+
+```json
+{
+  "audio_data": "base64编码的音频数据",
+  "audio_format": "wav"  // 可选参数，默认为wav
+}
+```
+
+- **响应**:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "transcript": [
+      {
+        "text": "这是识别出的文本内容",
+        "start_time": 0.0,
+        "end_time": 2.5
+      },
+      {
+        "text": "又一段识别内容",
+        "start_time": 3.0,
+        "end_time": 5.0
+      }
+    ]
+  }
+}
+```
+
+### 2. 单声道实时语音识别接口（form-data）
+
+- **URL**: `/api/v1/mono-asr/upload`
+- **方法**: POST
+- **Content-Type**: multipart/form-data
+- **表单字段**:
+  - `audio_file`: 音频文件
+
+- **响应**: 同上
+
+### 3. 双声道语音识别接口（JSON）
 
 - **URL**: `/api/v1/asr`
 - **方法**: POST
@@ -101,7 +148,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 }
 ```
 
-### 2. 语音识别接口（form-data）
+### 4. 双声道语音识别接口（form-data）
 
 - **URL**: `/api/v1/asr/upload`
 - **方法**: POST
@@ -114,7 +161,22 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 
 ## 使用示例
 
-### 使用curl发送请求（JSON）
+### 使用curl发送单声道识别请求（JSON）
+
+```bash
+curl -X POST http://localhost:5000/api/v1/mono-asr \
+  -H "Content-Type: application/json" \
+  -d '{"audio_data":"<base64编码的音频数据>", "audio_format":"wav"}'
+```
+
+### 使用curl发送单声道识别请求（form-data）
+
+```bash
+curl -X POST http://localhost:5000/api/v1/mono-asr/upload \
+  -F "audio_file=@/path/to/audio.wav"
+```
+
+### 使用curl发送双声道识别请求（JSON）
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/asr \
@@ -122,7 +184,7 @@ curl -X POST http://localhost:5000/api/v1/asr \
   -d '{"audio_data":"<base64编码的音频数据>", "audio_format":"wav", "mode":"split"}'
 ```
 
-### 使用curl发送请求（form-data）
+### 使用curl发送双声道识别请求（form-data）
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/asr/upload \
@@ -132,29 +194,35 @@ curl -X POST http://localhost:5000/api/v1/asr/upload \
 
 ## 识别模式说明
 
-平台提供四种不同的识别模式，以满足不同的使用场景：
+平台提供五种不同的识别模式，以满足不同的使用场景：
 
-### 1. 整体识别模式（combined）
+### 1. 单声道识别模式（mono-asr）
 
-- 默认模式
+- 专为单声道音频设计的实时语音识别接口
+- 直接使用ASR模型进行识别，不进行说话人分离处理
+- 返回带有时间戳的文本段落
+- 适用于实时语音识别场景，如语音助手、实时转写等
+
+### 2. 整体识别模式（combined）
+
+- 双声道识别的默认模式
 - 使用整体音频进行识别，同时进行说话人分离
 - 适用于一般情况下的双声道语音识别
 
-### 2. 分轨识别模式（split）
+### 3. 分轨识别模式（split）
 
 - 将双声道音频拆分为两个单声道，分别识别
 - 自动将第一个声道标记为speakerA，第二个声道标记为speakerB
 - 适用于已经物理分轨的录音，如会议录音、电话录音等
 
-### 3. 分段精细识别模式（alignment_segments）
+### 4. 分段精细识别模式（alignment_segments）
 
-- 新增功能
 - 基于WhisperX的对齐结果（alignment_result.json）拆分原始音频
 - 将每个片段单独进行ASR识别，并匹配说话人
 - 生成更精准的识别结果
 - 适用于需要高精度文字识别和时间戳的场景
 
-### 4. 话者分离片段识别模式（diarize_segments）
+### 5. 话者分离片段识别模式（diarize_segments）
 - 使用pyannote/speaker-diarization-3.1模型进行说话人分离，生成diarize_segments.json文件
 - 自动处理各种边缘情况，如无效的时间段、过短的片段等
 - 对每个拆分的音频片段单独进行ASR识别
