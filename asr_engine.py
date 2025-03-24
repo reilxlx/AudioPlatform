@@ -123,12 +123,13 @@ class ASREngine:
             
         return segments
     
-    def recognize_with_speaker_diarization(self, audio_path, use_segment_recognition=True):
+    def recognize_with_speaker_diarization(self, audio_path, use_segment_recognition=True, session_dir=None):
         """带说话人分离的音频识别，使用pyannote/speaker-diarization-3.1模型进行更精确的说话人分离
         
         Args:
             audio_path: 音频文件路径
             use_segment_recognition: 是否使用片段识别模式，默认为True
+            session_dir: 会话目录，用于保存中间结果，如果为None则创建新的
             
         Returns:
             list: 包含识别结果的列表，每个元素为一个字典，包含文本、开始时间、结束时间和说话人标识
@@ -142,8 +143,12 @@ class ASREngine:
             from pathlib import Path
             
             temp_manager = TempManager()
-            session_dir = temp_manager.create_session_dir()
-            self.logger.info(f"创建会话目录用于保存中间结果: {session_dir}")
+            if session_dir is None:
+                # 如果没有提供会话目录，则创建一个新的
+                session_dir = temp_manager.create_session_dir()
+                self.logger.info(f"创建会话目录用于保存中间结果: {session_dir}")
+            else:
+                self.logger.info(f"使用传入的会话目录: {session_dir}")
             
             # 1. 加载音频
             audio = whisperx.load_audio(audio_path)

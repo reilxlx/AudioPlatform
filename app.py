@@ -88,6 +88,15 @@ def asr_json():
         # 处理音频并进行识别
         result = process_audio(file_path, mode, session_dir)
         
+        # 检查处理结果是否包含错误
+        if 'error' in result:
+            error_response = {
+                'status': 'error',
+                'message': result['error']
+            }
+            logger.error(f"处理错误: {result['error']}")
+            return jsonify(error_response), 400
+        
         # 记录响应信息
         response_data = {
             'status': 'success',
@@ -131,13 +140,6 @@ def asr_upload():
         
         # 获取处理模式
         mode = request.form.get('mode', 'combined')  # 默认为combined模式
-        if mode not in ['combined', 'split', 'alignment_segments', 'diarize_segments']:
-            error_response = {
-                'status': 'error',
-                'message': f'不支持的处理模式: {mode}，支持的模式有: combined, split, alignment_segments, diarize_segments'
-            }
-            logger.error(f"请求错误: 不支持的处理模式: {mode}")
-            return jsonify(error_response), 400
         
         logger.info(f"接收到文件: {audio_file.filename}, 处理模式: {mode}")
         
@@ -153,6 +155,15 @@ def asr_upload():
         
         # 处理音频并进行识别
         result = process_audio(file_path, mode, session_dir)
+        
+        # 检查处理结果是否包含错误
+        if 'error' in result:
+            error_response = {
+                'status': 'error',
+                'message': result['error']
+            }
+            logger.error(f"处理错误: {result['error']}")
+            return jsonify(error_response), 400
         
         # 记录响应信息
         response_data = {
@@ -350,6 +361,16 @@ def process_audio(file_path, mode, session_dir=None):
         shutil.copy2(file_path, dest_path)
         logger.info(f"复制原始音频到会话目录: {dest_path}")
     
+    # 检查模式是否有效
+    valid_modes = ['split', 'combined', 'alignment_segments', 'diarize_segments']
+    if mode not in valid_modes:
+        error_message = f"不支持的处理模式: {mode}，支持的模式有: {', '.join(valid_modes)}"
+        logger.error(error_message)
+        return {
+            'error': error_message,
+            'transcript': []
+        }
+    
     if mode == 'split':
         # 分轨识别模式
         logger.info("使用分轨识别模式")
@@ -439,7 +460,7 @@ def process_audio(file_path, mode, session_dir=None):
             json.dump(results, f, ensure_ascii=False, indent=2)
         logger.info(f"最终结果已保存至: {final_results_path}")
         
-    else:  # combined模式
+    elif mode == 'combined':  # combined模式
         # 整体识别模式（带说话人分离和分段识别）
         logger.info("使用整体识别模式（带说话人分离和分段识别）")
         
@@ -449,14 +470,8 @@ def process_audio(file_path, mode, session_dir=None):
         logger.info(f"创建speaker_segments目录: {speaker_segments_dir}")
         
         # 2. 使用说话人分离技术识别不同的说话人
-        # 调用ASR引擎进行说话人分离和识别
-        # 这里会自动处理：
-        # - 使用pyannote进行说话人分离
-        # - 生成diarize_segments.json文件
-        # - 根据分离结果拆分原始音频到speaker_segments目录
-        # - 对每个片段单独进行ASR识别
-        # - 组装最终结果
-        results = asr_engine.recognize_with_speaker_diarization(dest_path, use_segment_recognition=True)
+        # 将session_dir传递给ASR引擎，避免创建新的临时目录
+        results = asr_engine.recognize_with_speaker_diarization(dest_path, use_segment_recognition=True, session_dir=session_dir)
         
         # 3. 记录处理结果
         logger.info(f"整体识别完成，总共 {len(results)} 个片段")
@@ -476,6 +491,13 @@ def process_audio(file_path, mode, session_dir=None):
     
     # 记录处理结果
     logger.log_processing("音频处理结果", {"segments_count": len(results)})
+    
+    # 检查返回结果中是否包含错误信息
+    if 'error' in results:
+        return {
+            'error': results['error'],
+            'transcript': []
+        }
     
     return {
         'transcript': results
