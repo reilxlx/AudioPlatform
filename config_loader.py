@@ -54,6 +54,15 @@ class ConfigLoader:
                 # 尝试从环境变量中读取
                 config['auth']['hf_token'] = os.environ.get('HF_TOKEN', '')
                 
+            # 确保服务器配置存在
+            if 'server' not in config:
+                config['server'] = {
+                    'max_content_length': 50,
+                    'host': '0.0.0.0',
+                    'port': 5001,
+                    'debug': True
+                }
+                
             return config
         except Exception as e:
             logging.error(f"加载配置文件失败: {str(e)}")
@@ -70,6 +79,12 @@ class ConfigLoader:
                 'temp_files': {
                     'auto_cleanup': False,
                     'retention_hours': 24
+                },
+                'server': {
+                    'max_content_length': 50,
+                    'host': '0.0.0.0',
+                    'port': 5001,
+                    'debug': True
                 }
             }
     
@@ -148,4 +163,36 @@ class ConfigLoader:
         Returns:
             int: 说话人数量
         """
-        return self.get('asr', 'num_speakers', 2) 
+        return self.get('asr', 'num_speakers', 2)
+    
+    def get_max_content_length(self):
+        """获取最大上传内容大小（MB）
+        
+        Returns:
+            int: 最大上传内容大小（MB）
+        """
+        return self.get('server', 'max_content_length', 50)
+    
+    def get_host(self):
+        """获取服务器主机
+        
+        Returns:
+            str: 服务器主机
+        """
+        return self.get('server', 'host', '0.0.0.0')
+    
+    def get_port(self):
+        """获取服务器端口
+        
+        Returns:
+            int: 服务器端口
+        """
+        return self.get('server', 'port', 5001)
+    
+    def get_debug(self):
+        """获取调试模式设置
+        
+        Returns:
+            bool: 是否开启调试模式
+        """
+        return self.get('server', 'debug', True) 

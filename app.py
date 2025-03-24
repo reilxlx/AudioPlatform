@@ -24,7 +24,7 @@ app = Flask(__name__)
 CORS(app)  # 启用CORS支持
 
 # 配置
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 限制上传文件大小为50MB
+app.config['MAX_CONTENT_LENGTH'] = config.get_max_content_length() * 1024 * 1024  # 根据配置设置最大上传大小
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()  # 使用系统临时目录
 os.environ['HF_HOME'] = config.get_hf_home()
 
@@ -336,4 +336,4 @@ def health_check():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host=config.get_host(), port=config.get_port(), debug=config.get_debug())

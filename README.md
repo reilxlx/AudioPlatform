@@ -202,6 +202,24 @@ asr:
   batch_size: 8
   # 固定说话人数量
   num_speakers: 2
+
+# 临时文件管理
+temp_files:
+  # 是否在任务完成后自动清理临时文件
+  auto_cleanup: false
+  # 临时文件保留时间（小时）
+  retention_hours: 24
+  
+# 服务器配置
+server:
+  # 最大上传内容大小（MB）
+  max_content_length: 50
+  # 服务器主机
+  host: '0.0.0.0'
+  # 服务器端口
+  port: 5001
+  # 是否开启调试模式
+  debug: true
 ```
 
 环境变量支持：您也可以通过环境变量`HF_TOKEN`设置Hugging Face API令牌。
