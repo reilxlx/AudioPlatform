@@ -341,7 +341,7 @@ def process_audio(file_path, mode, session_dir=None):
     
     Args:
         file_path: 音频文件路径
-        mode: 处理模式，'split'表示分轨识别，'combined'表示整体识别，'alignment_segments'表示通过alignment拆分识别
+        mode: 处理模式，'split'表示分轨识别，'combined'表示整体识别
         session_dir: 会话目录，用于保存临时文件
         
     Returns:
@@ -362,7 +362,7 @@ def process_audio(file_path, mode, session_dir=None):
         logger.info(f"复制原始音频到会话目录: {dest_path}")
     
     # 检查模式是否有效
-    valid_modes = ['split', 'combined', 'alignment_segments', 'diarize_segments']
+    valid_modes = ['split', 'combined', 'diarize_segments']
     if mode not in valid_modes:
         error_message = f"不支持的处理模式: {mode}，支持的模式有: {', '.join(valid_modes)}"
         logger.error(error_message)
@@ -401,35 +401,6 @@ def process_audio(file_path, mode, session_dir=None):
         # 3. 按时间戳排序
         results.sort(key=lambda x: x['start_time'])  
         logger.info(f"分轨识别完成，总共 {len(results)} 个片段")
-        
-    elif mode == 'alignment_segments':
-        # 使用alignment_result.json拆分并识别模式
-        logger.info("使用alignment_result.json拆分并识别模式")
-        
-        # 创建speaker_segments目录
-        speaker_segments_dir = os.path.join(session_dir, "speaker_segments")
-        os.makedirs(speaker_segments_dir, exist_ok=True)
-        logger.info(f"创建speaker_segments目录: {speaker_segments_dir}")
-        
-        # 使用新开发的方法对音频进行处理
-        results = asr_engine.recognize_with_alignment_segments(dest_path)
-        
-        # 记录处理结果
-        logger.info(f"alignment_segments识别完成，总共 {len(results)} 个片段")
-        
-        # 生成总结文件
-        summary_path = os.path.join(session_dir, "alignment_segments_summary.txt")
-        with open(summary_path, 'w', encoding='utf-8') as f:
-            for segment in results:
-                speaker = segment.get("speaker", "unknown")
-                f.write(f"[{speaker}] {segment['start_time']:.1f}s - {segment['end_time']:.1f}s: {segment['text']}\n")
-        logger.info(f"分段识别摘要已保存至: {summary_path}")
-        
-        # 保存最终结果为易读的JSON格式
-        final_results_path = os.path.join(session_dir, "final_results.json")
-        with open(final_results_path, 'w', encoding='utf-8') as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
-        logger.info(f"最终结果已保存至: {final_results_path}")
         
     elif mode == 'diarize_segments':
         # 基于diarize_segments.json拆分并识别模式
