@@ -12,6 +12,7 @@
 - 详细的输出格式（包含说话内容和时间戳信息）
 - 支持HTTP+JSON和HTTP+form-data两种接口形式
 - 支持并发多用户调用
+- 支持文本转语音（TTS）功能，使用ChatTTS模型
 
 ## 技术栈
 
@@ -159,6 +160,49 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
   - `mode`: 识别模式（可选，默认为"combined"）
 
 - **响应**: 同上
+
+### 5. 文本转语音接口（TTS）
+
+- **URL**: `/api/v1/tts`
+- **方法**: POST
+- **Content-Type**: application/json
+- **请求体**:
+
+```json
+{
+  "text": "要转换的文本内容",
+  "temperature": 0.0003,  // 可选参数，控制生成的随机性
+  "top_p": 0.7,          // 可选参数，top-p采样参数
+  "top_k": 20,           // 可选参数，top-k采样参数
+  "output_path": null    // 可选参数，指定输出文件路径，默认自动生成
+}
+```
+
+- **响应**:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "audio_file_path": "/path/to/generated/audio.wav",  // 生成的音频文件路径
+    "audio_data": "base64编码的音频数据",                // 音频文件的base64编码
+    "sample_rate": 24000                                // 音频采样率
+  }
+}
+```
+
+### 使用curl发送TTS请求
+
+```bash
+curl -X POST http://localhost:5000/api/v1/tts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "你好，这是一段测试文本",
+    "temperature": 0.0003,
+    "top_p": 0.7,
+    "top_k": 20
+  }'
+```
 
 ## 使用示例
 
@@ -354,3 +398,44 @@ VoicePlatform-Tea-macmini-Stereo/
 - 降低代码耦合度
 - 方便后续功能扩展
 - 提高代码的可读性和可维护性
+
+## 工具脚本
+
+### Base64转音频文件 (base64_to_audio.py)
+
+这个脚本用于将base64编码的音频数据转换为音频文件并保存到本地。支持多种常见音频格式，如WAV、MP3、AAC、FLAC等。
+
+#### 使用方法
+
+**在Python代码中直接导入使用**:
+
+```python
+from base64_to_audio import base64_to_audio
+
+# 使用默认设置（UUID自动生成文件名，wav格式）
+output_path = base64_to_audio(base64_string)
+print(f"音频文件已保存到: {output_path}")
+
+# 指定输出文件路径
+output_path = base64_to_audio(base64_string, output_file_path="output_audio.wav")
+
+# 指定不同的音频格式
+output_path = base64_to_audio(base64_string, format="mp3")
+
+# 同时指定文件路径和格式
+output_path = base64_to_audio(
+    base64_string, 
+    output_file_path="my_audio_file", 
+    format="flac"
+)
+```
+
+#### 功能特点
+
+- 支持多种音频格式（WAV、MP3、AAC、FLAC等）
+- 使用UUID自动生成唯一文件名（当未指定输出路径时）
+- 自动创建输出目录（如果不存在）
+- 自动添加文件扩展名（如果未指定）
+- 处理带有MIME类型前缀的base64字符串（如"data:audio/wav;base64,..."）
+- 提供清晰的错误提示
+- 简单易用，无需复杂命令行参数

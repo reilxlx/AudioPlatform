@@ -9,10 +9,12 @@ import json
 import tempfile
 import shutil
 from werkzeug.utils import secure_filename
+import time
 
 # 导入自定义模块
 from src_asr.audio_processor import AudioProcessor
 from src_asr.asr_engine import ASREngine
+from src_tts.tts_engine import TTSEngine
 from utils.temp_manager import TempManager
 from utils.logger import Logger
 from utils.config_loader import ConfigLoader
@@ -39,6 +41,9 @@ asr_engine = ASREngine(logger=logger)
 
 # 初始化音频处理器
 audio_processor = AudioProcessor(temp_manager=temp_manager, logger=logger)
+
+# 初始化TTS引擎
+tts_engine = TTSEngine(logger=logger)
 
 @app.route('/api/v1/asr', methods=['POST'])
 def asr_json():
@@ -467,6 +472,79 @@ def process_audio(file_path, mode, session_dir=None):
     return {
         'transcript': results
     }
+
+@app.route('/api/v1/tts', methods=['POST'])
+def text_to_speech():
+    """处理文本转语音请求"""
+    try:
+        data = request.get_json()
+        
+        # 记录请求信息
+        logger.log_request(data, '/api/v1/tts')
+        
+        if not data or 'text' not in data:
+            error_response = {
+                'status': 'error',
+                'message': '缺少文本数据'
+            }
+            logger.error(f"请求错误: 缺少文本数据")
+            return jsonify(error_response), 400
+        
+        # 获取参数
+        text = data['text']
+        temperature = float(data.get('temperature', 0.0003))
+        top_p = float(data.get('top_p', 0.7))
+        top_k = int(data.get('top_k', 20))
+        output_path = data.get('output_path', None)  # 可以指定输出路径，默认为None
+        
+        logger.info(f"TTS请求参数: temperature={temperature}, top_p={top_p}, top_k={top_k}")
+        
+        # 执行文本转语音
+        try:
+            # 生成文件名（如果未指定）
+            if output_path is None:
+                output_path = os.path.join("temp_files", f"tts_output_{int(time.time())}.wav")
+            
+            # 确保目录存在
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            # 保存到文件并返回base64
+            audio_file_path, base64_audio = tts_engine.text_to_speech(
+                text=text,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                output_path=output_path
+            )
+            
+            # 记录响应信息
+            response_data = {
+                'status': 'success',
+                'data': {
+                    'audio_file_path': audio_file_path,
+                    'audio_data': base64_audio,
+                    'sample_rate': 24000  # ChatTTS的采样率
+                }
+            }
+            logger.log_response(response_data, '/api/v1/tts')
+            
+            return jsonify(response_data)
+            
+        except Exception as e:
+            error_response = {
+                'status': 'error',
+                'message': f'文本转语音失败: {str(e)}'
+            }
+            logger.error(f"文本转语音失败: {str(e)}")
+            return jsonify(error_response), 500
+            
+    except Exception as e:
+        error_response = {
+            'status': 'error',
+            'message': str(e)
+        }
+        logger.error(f"处理请求失败: {str(e)}")
+        return jsonify(error_response), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
