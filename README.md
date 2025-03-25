@@ -195,7 +195,7 @@ curl -X POST http://localhost:5000/api/v1/asr/upload \
 
 ## 识别模式说明
 
-平台提供五种不同的识别模式，以满足不同的使用场景：
+平台提供四种不同的识别模式，以满足不同的使用场景：
 
 ### 1. 单声道识别模式（mono-asr）
 
@@ -217,14 +217,7 @@ curl -X POST http://localhost:5000/api/v1/asr/upload \
 - 自动将第一个声道标记为speakerA，第二个声道标记为speakerB
 - 适用于已经物理分轨的录音，如会议录音、电话录音等
 
-### 4. 分段精细识别模式（alignment_segments）
-
-- 基于WhisperX的对齐结果（alignment_result.json）拆分原始音频
-- 将每个片段单独进行ASR识别，并匹配说话人
-- 生成更精准的识别结果
-- 适用于需要高精度文字识别和时间戳的场景
-
-### 5. 话者分离片段识别模式（diarize_segments）
+### 4. 话者分离片段识别模式（diarize_segments）
 - 使用pyannote/speaker-diarization-3.1模型进行说话人分离，生成diarize_segments.json文件
 - 自动处理各种边缘情况，如无效的时间段、过短的片段等
 - 对每个拆分的音频片段单独进行ASR识别
