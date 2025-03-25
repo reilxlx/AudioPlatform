@@ -10,6 +10,22 @@ import pybase16384 as b14
 from utils.logger import Logger
 import time
 
+def tensor_to_str(spk_emb):
+    """将音色张量转换为压缩编码的字符串
+    
+    Args:
+        spk_emb (torch.Tensor): 音色嵌入张量
+        
+    Returns:
+        str: 编码后的字符串
+    """
+    # 将Tensor转换为NumPy数组
+    spk_emb_np = spk_emb.cpu().numpy().astype(np.float16)
+    # 将NumPy数组编码为字符串
+    spk_emb_str = b14.encode_to_string(lzma.compress(spk_emb_np, format=lzma.FORMAT_RAW, filters=[
+        {"id": lzma.FILTER_LZMA2, "preset": 9 | lzma.PRESET_EXTREME}]))
+    return spk_emb_str
+
 class TTSEngine:
     def __init__(self, logger=None):
         """初始化TTS引擎"""
@@ -31,27 +47,13 @@ class TTSEngine:
             self.chat = ChatTTS.Chat()
             self.chat.load(compile=False)
             
-            # 加载音色文件
-            spk = torch.load("seed_id/seed_2310_restored_emb-woman.pt", map_location=torch.device('cpu')).detach()
-            self.spk_emb_str = self._compress_and_encode(spk)
+            # 加载音色文件并编码
+            spk = torch.load("seed_id/seed_1332_restored_emb-man.pt", map_location=torch.device('cpu')).detach()
+            self.spk_emb_str = tensor_to_str(spk)
             
             self.logger.info("TTS模型初始化成功")
         except Exception as e:
             self.logger.error(f"TTS模型初始化失败: {str(e)}")
-            raise
-    
-    def _compress_and_encode(self, tensor):
-        """压缩并编码音色张量"""
-        try:
-            np_array = tensor.numpy().astype(np.float16)
-            compressed = lzma.compress(np_array.tobytes(), 
-                                     format=lzma.FORMAT_RAW,
-                                     filters=[{"id": lzma.FILTER_LZMA2, 
-                                              "preset": 9 | lzma.PRESET_EXTREME}])
-            encoded = b14.encode_to_string(compressed)
-            return encoded
-        except Exception as e:
-            self.logger.error(f"音色编码失败: {str(e)}")
             raise
     
     def text_to_speech(self, text, temperature=0.0003, top_p=0.7, top_k=20, output_path=None):
@@ -69,7 +71,7 @@ class TTSEngine:
         """
         try:
             # 设置推理参数
-            params = self.chat.InferCodeParams(
+            params_infer_code = self.chat.InferCodeParams(
                 spk_emb=self.spk_emb_str,
                 temperature=temperature,
                 top_P=top_p,
@@ -77,7 +79,7 @@ class TTSEngine:
             )
             
             # 执行推理
-            wavs = self.chat.infer([text])
+            wavs = self.chat.infer([text], use_decoder = True, params_infer_code = params_infer_code)
             wav = wavs[0]
             
             # 生成输出路径
