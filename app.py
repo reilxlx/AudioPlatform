@@ -461,29 +461,23 @@ def process_audio(file_path, mode, session_dir=None):
         logger.info(f"最终结果已保存至: {final_results_path}")
         
     elif mode == 'combined':  # combined模式
-        # 整体识别模式（带说话人分离和分段识别）
-        logger.info("使用整体识别模式（带说话人分离和分段识别）")
+        # 整体识别模式（不进行说话人分离）
+        logger.info("使用整体识别模式（不进行说话人分离）")
         
-        # 1. 创建分段目录
-        speaker_segments_dir = os.path.join(session_dir, "speaker_segments")
-        os.makedirs(speaker_segments_dir, exist_ok=True)
-        logger.info(f"创建speaker_segments目录: {speaker_segments_dir}")
+        # 直接使用ASR引擎识别整个音频文件
+        results = asr_engine.recognize(dest_path)
         
-        # 2. 使用说话人分离技术识别不同的说话人
-        # 将session_dir传递给ASR引擎，避免创建新的临时目录
-        results = asr_engine.recognize_with_speaker_diarization(dest_path, use_segment_recognition=True, session_dir=session_dir)
-        
-        # 3. 记录处理结果
+        # 记录处理结果
         logger.info(f"整体识别完成，总共 {len(results)} 个片段")
         
-        # 4. 生成话者分离摘要文本（优化格式）
-        summary_path = os.path.join(session_dir, "combined_speaker_summary.txt")
+        # 生成识别摘要文本
+        summary_path = os.path.join(session_dir, "combined_summary.txt")
         with open(summary_path, 'w', encoding='utf-8') as f:
             for segment in results:
-                f.write(f"[{segment['speaker']}] {segment['start_time']:.1f}s - {segment['end_time']:.1f}s: {segment['text']}\n")
-        logger.info(f"话者分离摘要已保存至: {summary_path}")
+                f.write(f"{segment['start_time']:.1f}s - {segment['end_time']:.1f}s: {segment['text']}\n")
+        logger.info(f"识别摘要已保存至: {summary_path}")
         
-        # 5. 保存最终结果为易读的JSON格式
+        # 保存最终结果为易读的JSON格式
         final_results_path = os.path.join(session_dir, "final_results.json")
         with open(final_results_path, 'w', encoding='utf-8') as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
