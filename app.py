@@ -11,11 +11,11 @@ import shutil
 from werkzeug.utils import secure_filename
 
 # 导入自定义模块
-from audio_processor import AudioProcessor
-from asr_engine import ASREngine
-from temp_manager import TempManager
-from logger import Logger
-from config_loader import ConfigLoader
+from src_asr.audio_processor import AudioProcessor
+from src_asr.asr_engine import ASREngine
+from utils.temp_manager import TempManager
+from utils.logger import Logger
+from utils.config_loader import ConfigLoader
 
 # 加载配置
 config = ConfigLoader()

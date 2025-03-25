@@ -9,7 +9,7 @@ import whisperx
 import librosa
 import soundfile as sf
 from pydub import AudioSegment
-from config_loader import ConfigLoader
+from utils.config_loader import ConfigLoader
 
 # 加载配置
 config = ConfigLoader()
@@ -140,7 +140,7 @@ class ASREngine:
             # 1. 使用传入的会话目录或创建新的会话目录
             import tempfile
             import json  # 确保在方法开始时就导入json模块
-            from temp_manager import TempManager
+            from utils.temp_manager import TempManager
             from pathlib import Path
             import traceback
             
@@ -326,7 +326,7 @@ class ASREngine:
                 return self.recognize(audio_path)
             
             # 2. 从音频文件中提取每个片段并进行识别
-            from audio_segment_extractor import AudioSegmentExtractor
+            from src_asr.audio_segment_extractor import AudioSegmentExtractor
             extractor = AudioSegmentExtractor(temp_manager)
             
             results = []

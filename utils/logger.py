@@ -18,7 +18,7 @@ class Logger:
         # 设置日志目录
         if log_dir is None:
             # 在项目根目录下创建logs文件夹
-            self.log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+            self.log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
         else:
             self.log_dir = log_dir
             

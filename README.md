@@ -302,3 +302,55 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ## 许可证
 
 [MIT License](LICENSE)
+
+## 项目结构
+
+```
+VoicePlatform-Tea-macmini-Stereo/
+│
+├── app.py                 # 主应用入口，提供HTTP API服务
+├── config.yaml            # 配置文件
+├── requirements.txt       # 项目依赖
+│
+├── src_asr/               # ASR相关代码目录
+│   ├── __init__.py        # 包初始化文件
+│   ├── asr_engine.py      # ASR引擎核心类
+│   ├── asr_engine_segment.py  # ASR分段处理函数
+│   ├── audio_processor.py     # 音频处理类
+│   ├── audio_segment_extractor.py  # 音频分段提取器
+│   └── speaker_segment_processor.py  # 说话人分段处理器
+│
+├── utils/                 # 通用工具类目录
+│   ├── __init__.py        # 包初始化文件
+│   ├── config_loader.py   # 配置加载器
+│   ├── logger.py          # 日志类
+│   └── temp_manager.py    # 临时文件管理器
+│
+├── logs/                  # 日志文件目录
+└── temp_files/            # 临时文件目录
+```
+
+## 项目重构说明
+
+为了提高代码的可维护性和模块化程度，我们对项目进行了如下重构：
+
+1. **模块分离**：
+   - 将ASR相关的代码移至`src_asr/`目录
+   - 将通用工具类代码移至`utils/`目录
+
+2. **导入路径更新**：
+   - 所有模块的导入路径已经更新，使用包名进行导入
+   - 例如：`from utils.logger import Logger`
+
+3. **包初始化**：
+   - 在`src_asr/`和`utils/`目录下添加了`__init__.py`文件
+   - 定义了每个包导出的类和函数，方便其他模块导入
+
+4. **路径处理优化**：
+   - 修改了临时文件和日志文件的路径处理逻辑，确保在新的目录结构下能够正确找到相应目录
+
+这样的重构有助于：
+- 更清晰地区分不同功能模块
+- 降低代码耦合度
+- 方便后续功能扩展
+- 提高代码的可读性和可维护性

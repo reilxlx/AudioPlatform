@@ -18,7 +18,7 @@ class ConfigLoader:
         # 设置默认配置文件路径
         if config_file is None:
             # 首先查找当前目录下的config.local.yaml（本地开发配置）
-            project_root = Path(__file__).parent.absolute()
+            project_root = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).absolute()
             local_config = project_root / 'config.local.yaml'
             default_config = project_root / 'config.yaml'
             

@@ -6,7 +6,7 @@ import tempfile
 import numpy as np
 import librosa
 import soundfile as sf
-from temp_manager import TempManager
+from utils.temp_manager import TempManager
 
 class AudioSegmentExtractor:
     """音频片段提取器，用于从音频文件中提取指定时间段的片段"""

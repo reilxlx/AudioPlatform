@@ -19,7 +19,7 @@ class TempManager:
         # 设置临时文件目录
         if base_dir is None:
             # 在项目根目录下创建temp_files文件夹
-            self.base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_files')
+            self.base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'temp_files')
         else:
             self.base_dir = base_dir
             

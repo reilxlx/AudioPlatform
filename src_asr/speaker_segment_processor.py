@@ -6,8 +6,8 @@ import json
 import torch
 import whisperx
 import gc
-from audio_segment_extractor import AudioSegmentExtractor
-from temp_manager import TempManager
+from src_asr.audio_segment_extractor import AudioSegmentExtractor
+from utils.temp_manager import TempManager
 
 class SpeakerSegmentProcessor:
     """说话人分段处理器，用于基于说话人分离结果进行音频分段识别"""

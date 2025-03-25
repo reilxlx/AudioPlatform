@@ -7,8 +7,8 @@ import numpy as np
 import librosa
 import soundfile as sf
 from pydub import AudioSegment
-from temp_manager import TempManager
-from logger import Logger
+from utils.temp_manager import TempManager
+from utils.logger import Logger
 os.environ['HF_HOME'] = '/Users/reilx/Downloads/githubCode/voice'
 class AudioProcessor:
     """音频处理类，用于处理双声道音频"""
@@ -24,7 +24,7 @@ class AudioProcessor:
         self.temp_manager = temp_manager if temp_manager else TempManager()
         
         # 初始化日志记录器
-        self.logger = logger if logger else Logger(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs'))
+        self.logger = logger if logger else Logger(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs'))
         
         self.logger.info("音频处理器初始化完成")
     

@@ -6,8 +6,8 @@ import json
 import torch
 import whisperx
 import gc
-from audio_segment_extractor import AudioSegmentExtractor
-from temp_manager import TempManager
+from src_asr.audio_segment_extractor import AudioSegmentExtractor
+from utils.temp_manager import TempManager
 
 def recognize_segments_separately(asr_engine, audio_path, diarize_segments_path, session_dir):
     """根据说话人分离结果切分音频并单独识别

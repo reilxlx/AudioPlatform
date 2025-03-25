@@ -5,11 +5,14 @@
 *.txt
 *.yaml
 *.md
+*.pyc
 
 # 忽略特定目录
 /logs/
 /temp_files/
 /__pycache__/
+/src_asr/__pycache__/
+/utils/__pycache__/
 
 # 忽略临时文件
 *.tmp
