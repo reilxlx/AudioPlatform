@@ -9,6 +9,9 @@ import lzma
 import pybase16384 as b14
 from utils.logger import Logger
 import time
+import requests
+import json
+from utils.config_loader import ConfigLoader
 
 def tensor_to_str(spk_emb):
     """将音色张量转换为压缩编码的字符串
@@ -32,6 +35,7 @@ class TTSEngine:
         self.logger = logger or Logger()
         self.chat = None
         self.spk_emb_str = None
+        self.config = ConfigLoader()
         self._initialize_model()
         
     def _initialize_model(self):
@@ -48,7 +52,7 @@ class TTSEngine:
             self.chat.load(compile=False)
             
             # 加载音色文件并编码
-            spk = torch.load("seed_id/seed_1332_restored_emb-man.pt", map_location=torch.device('cpu')).detach()
+            spk = torch.load("seed_id/seed_2155_restored_emb-woman.pt", map_location=torch.device('cpu')).detach()
             self.spk_emb_str = tensor_to_str(spk)
             
             self.logger.info("TTS模型初始化成功")
@@ -106,4 +110,55 @@ class TTSEngine:
             
         except Exception as e:
             self.logger.error(f"文本转语音失败: {str(e)}")
+            raise
+            
+    def fish_speech(self, text, voice=None, response_format="mp3"):
+        """使用Fish-Speech-1.5模型将文本转换为语音
+        
+        Args:
+            text (str): 要转换的文本
+            voice (str, optional): 语音样本的路径，用于克隆声音
+            response_format (str, optional): 返回音频的格式，默认为mp3
+            
+        Returns:
+            str: base64编码的音频数据
+        """
+        try:
+            # 获取Fish-Speech API配置
+            api_url = self.config.get('tts.fish_speech.api_url', 'http://localhost:9997/v1/audio/speech')
+            
+            # 构建请求数据
+            request_data = {
+                "model": "FishSpeech-1.5",
+                "input": text,
+                "response_format": response_format
+            }
+            
+            # 如果提供了声音样本，添加到请求中
+            if voice:
+                request_data["voice"] = voice
+                
+            self.logger.info(f"请求Fish-Speech API: {api_url}")
+            self.logger.info(f"请求数据: {json.dumps(request_data)}")
+            
+            # 发送请求
+            response = requests.post(api_url, json=request_data)
+            
+            # 检查响应状态
+            if response.status_code != 200:
+                error_msg = f"Fish-Speech API请求失败，状态码: {response.status_code}, 响应内容: {response.text}"
+                self.logger.error(error_msg)
+                raise Exception(error_msg)
+            
+            # 直接获取base64编码的音频数据
+            audio_base64 = response.text
+            
+            self.logger.info(f"Fish-Speech文本转语音成功")
+            self.logger.info(f"转换的文本内容: {text[:50]}...")
+            self.logger.info(f"已获取base64编码，编码长度: {len(audio_base64)}")
+            
+            return audio_base64
+            
+        except Exception as e:
+            self.logger.error(f"Fish-Speech文本转语音失败: {str(e)}")
             raise 

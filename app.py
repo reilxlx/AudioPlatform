@@ -475,7 +475,7 @@ def process_audio(file_path, mode, session_dir=None):
 
 @app.route('/api/v1/tts', methods=['POST'])
 def text_to_speech():
-    """处理文本转语音请求"""
+    """文本转语音接口"""
     try:
         data = request.get_json()
         
@@ -538,6 +538,57 @@ def text_to_speech():
             logger.error(f"文本转语音失败: {str(e)}")
             return jsonify(error_response), 500
             
+    except Exception as e:
+        error_response = {
+            'status': 'error',
+            'message': str(e)
+        }
+        logger.error(f"处理请求失败: {str(e)}")
+        return jsonify(error_response), 500
+
+@app.route('/api/v1/fish-speech', methods=['POST'])
+def fish_speech():
+    """使用Fish-Speech-1.5模型进行文本转语音"""
+    try:
+        data = request.get_json()
+        
+        # 记录请求信息
+        logger.log_request(data, '/api/v1/fish-speech')
+        
+        if not data or 'input' not in data:
+            error_response = {
+                'status': 'error',
+                'message': '缺少文本数据'
+            }
+            logger.error(f"请求错误: 缺少文本数据")
+            return jsonify(error_response), 400
+        
+        # 获取参数
+        text = data['input']
+        voice = data.get('voice', None)
+        response_format = data.get('response_format', 'mp3')
+        
+        logger.info(f"Fish-Speech请求: {text[:50]}...")
+        
+        try:
+            # 调用Fish-Speech引擎
+            audio_data_base64 = tts_engine.fish_speech(
+                text=text,
+                voice=voice,
+                response_format=response_format
+            )
+            
+            # 直接返回base64编码的音频数据，不包含JSON包装
+            return audio_data_base64
+            
+        except Exception as e:
+            error_response = {
+                'status': 'error',
+                'message': f'Fish-Speech转换失败: {str(e)}'
+            }
+            logger.error(f"Fish-Speech转换失败: {str(e)}")
+            return jsonify(error_response), 500
+        
     except Exception as e:
         error_response = {
             'status': 'error',

@@ -191,6 +191,25 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 }
 ```
 
+### 6. Fish-Speech文本转语音接口
+
+- **URL**: `/api/v1/fish-speech`
+- **方法**: POST
+- **Content-Type**: application/json
+- **请求体**:
+
+```json
+{
+  "model": "FishSpeech-1.5",        // 模型名称，当前支持"FishSpeech-1.5"
+  "input": "要转换的文本内容",        // 必填，要转换的文本
+  "voice": "/path/to/voice.wav",    // 可选，语音样本路径，用于克隆声音
+  "response_format": "mp3"          // 可选，返回的音频格式，默认为"mp3"
+}
+```
+
+- **响应**:
+直接返回base64编码的音频数据，不包含JSON包装。
+
 ### 使用curl发送TTS请求
 
 ```bash
@@ -203,6 +222,22 @@ curl -X POST http://localhost:5000/api/v1/tts \
     "top_k": 20
   }'
 ```
+
+### 使用curl发送Fish-Speech请求
+
+```bash
+curl -X POST http://localhost:5000/api/v1/fish-speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "FishSpeech-1.5",
+    "input": "你好，这是一段使用FishSpeech-1.5模型生成的一段TTS语言，该语音特点为音色稳定，适合作为日常播放使用的音频。",
+    "voice": "/path/to/voice_sample.wav",
+    "response_format": "mp3"
+  }' \
+  --output output.mp3
+```
+
+注意：Fish-Speech API直接返回音频数据（非JSON格式），因此使用`--output`参数将结果保存为音频文件。
 
 ## 使用示例
 
@@ -398,6 +433,23 @@ VoicePlatform-Tea-macmini-Stereo/
 - 降低代码耦合度
 - 方便后续功能扩展
 - 提高代码的可读性和可维护性
+
+## 版本更新说明
+
+### 2023.03.26 更新
+
+1. **新增Fish-Speech API支持**:
+   - 添加了全新的`/api/v1/fish-speech`接口，支持使用FishSpeech-1.5模型进行文本转语音
+   - 新接口支持语音克隆功能，可通过提供语音样本(`voice`参数)来模仿特定声音
+   - 简化的响应格式，直接返回base64编码的音频数据
+
+2. **配置增强**:
+   - 在`config.yaml`中添加了`tts.fish_speech`配置节，支持自定义API URL和默认响应格式
+   - 所有配置都可通过修改配置文件进行自定义，无需修改代码
+
+3. **改进的文档**:
+   - 更新了API文档，新增了Fish-Speech API的接口说明和使用示例
+   - 添加了curl示例，展示如何调用新API并保存结果
 
 ## 工具脚本
 
