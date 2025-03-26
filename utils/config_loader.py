@@ -62,6 +62,17 @@ class ConfigLoader:
                     'port': 5001,
                     'debug': True
                 }
+            
+            # 确保TTS配置存在
+            if 'tts' not in config:
+                config['tts'] = {}
+            
+            # 确保Fish-Speech配置存在
+            if 'fish_speech' not in config['tts']:
+                config['tts']['fish_speech'] = {
+                    'api_url': 'http://localhost:9997/v1/audio/speech',
+                    'default_format': 'mp3'
+                }
                 
             return config
         except Exception as e:
@@ -75,6 +86,12 @@ class ConfigLoader:
                     'model_size': 'medium',
                     'batch_size': 8,
                     'num_speakers': 2
+                },
+                'tts': {
+                    'fish_speech': {
+                        'api_url': 'http://localhost:9997/v1/audio/speech',
+                        'default_format': 'mp3'
+                    }
                 },
                 'temp_files': {
                     'auto_cleanup': False,
@@ -102,6 +119,26 @@ class ConfigLoader:
         if section in self.config and key in self.config[section]:
             return self.config[section][key]
         return default
+    
+    def get_nested(self, path, default=None):
+        """获取嵌套配置值
+        
+        Args:
+            path: 配置路径，用点号分隔，如 'tts.fish_speech.api_url'
+            default: 默认值，如果配置不存在则返回此值
+            
+        Returns:
+            配置值或默认值
+        """
+        keys = path.split('.')
+        current = self.config
+        
+        try:
+            for key in keys:
+                current = current[key]
+            return current
+        except (KeyError, TypeError):
+            return default
     
     def get_hf_token(self):
         """获取HuggingFace API令牌

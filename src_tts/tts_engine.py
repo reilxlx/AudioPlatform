@@ -121,11 +121,16 @@ class TTSEngine:
             response_format (str, optional): 返回音频的格式，默认为mp3
             
         Returns:
-            str: base64编码的音频数据
+            tuple: (本地保存的音频文件路径, base64编码的音频数据)
         """
         try:
             # 获取Fish-Speech API配置
-            api_url = self.config.get('tts.fish_speech.api_url', 'http://localhost:9997/v1/audio/speech')
+            api_url = self.config.get_nested('tts.fish_speech.api_url')
+            if not api_url:
+                api_url = 'http://localhost:9997/v1/audio/speech'
+                self.logger.warning(f"未找到Fish-Speech API URL配置，使用默认值: {api_url}")
+            
+            self.logger.info(f"使用Fish-Speech API: {api_url}")
             
             # 构建请求数据
             request_data = {
@@ -136,28 +141,65 @@ class TTSEngine:
             
             # 如果提供了声音样本，添加到请求中
             if voice:
-                request_data["voice"] = voice
+                # 检查声音样本文件是否存在
+                import os
+                if not os.path.exists(voice):
+                    self.logger.warning(f"声音样本文件不存在: {voice}，将使用默认音色")
+                else:
+                    request_data["voice"] = voice
                 
             self.logger.info(f"请求Fish-Speech API: {api_url}")
-            self.logger.info(f"请求数据: {json.dumps(request_data)}")
+            # 使用ensure_ascii=False确保中文能够正确显示而不是Unicode转义序列
+            self.logger.info(f"请求数据: {json.dumps(request_data, ensure_ascii=False)}")
             
             # 发送请求
-            response = requests.post(api_url, json=request_data)
-            
-            # 检查响应状态
-            if response.status_code != 200:
-                error_msg = f"Fish-Speech API请求失败，状态码: {response.status_code}, 响应内容: {response.text}"
+            try:
+                response = requests.post(api_url, json=request_data, timeout=300)
+            except requests.exceptions.RequestException as e:
+                error_msg = f"请求Fish-Speech API失败: {str(e)}"
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
             
-            # 直接获取base64编码的音频数据
-            audio_base64 = response.text
+            # 检查响应状态
+            if response.status_code != 200:
+                error_msg = f"Fish-Speech API请求失败，状态码: {response.status_code}, 响应内容: {response.text[:200] if hasattr(response, 'text') else '无文本响应'}"
+                self.logger.error(error_msg)
+                raise Exception(error_msg)
             
-            self.logger.info(f"Fish-Speech文本转语音成功")
+            # 获取二进制音频数据
+            audio_binary = response.content
+            
+            # 检查返回的二进制数据
+            if not audio_binary or len(audio_binary) < 100:  # 简单检查返回数据是否有效
+                error_msg = f"Fish-Speech API返回的数据无效，长度: {len(audio_binary) if audio_binary else 0}"
+                self.logger.error(error_msg)
+                raise Exception(error_msg)
+            
+            # 生成输出文件路径
+            import os
+            import tempfile
+            temp_dir = os.path.join("temp_files", "fish_speech")
+            os.makedirs(temp_dir, exist_ok=True)
+            output_path = os.path.join(temp_dir, f"fish_speech_output_{int(time.time())}.{response_format}")
+            
+            # 直接保存二进制音频数据到文件
+            try:
+                with open(output_path, "wb") as f:
+                    f.write(audio_binary)
+                self.logger.info(f"已将音频保存到: {output_path}, 大小: {len(audio_binary)} 字节")
+            except Exception as e:
+                error_msg = f"保存音频文件失败: {str(e)}"
+                self.logger.error(error_msg)
+                raise Exception(error_msg)
+            
+            # 将二进制数据转换为base64编码以便JSON响应
+            audio_base64 = base64.b64encode(audio_binary).decode('utf-8')
+            
+            self.logger.info(f"Fish-Speech文本转语音成功，音频已保存到: {output_path}")
             self.logger.info(f"转换的文本内容: {text[:50]}...")
-            self.logger.info(f"已获取base64编码，编码长度: {len(audio_base64)}")
+            self.logger.info(f"已生成base64编码，编码长度: {len(audio_base64)}")
             
-            return audio_base64
+            return output_path, audio_base64
             
         except Exception as e:
             self.logger.error(f"Fish-Speech文本转语音失败: {str(e)}")

@@ -203,12 +203,41 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
   "model": "FishSpeech-1.5",        // 模型名称，当前支持"FishSpeech-1.5"
   "input": "要转换的文本内容",        // 必填，要转换的文本
   "voice": "/path/to/voice.wav",    // 可选，语音样本路径，用于克隆声音
-  "response_format": "mp3"          // 可选，返回的音频格式，默认为"mp3"
+  "response_format": "mp3"          // 可选，返回的音频格式，支持mp3,wav,ogg,flac，默认为"mp3"
 }
 ```
 
 - **响应**:
-直接返回base64编码的音频数据，不包含JSON包装。
+
+```json
+{
+  "status": "success",
+  "data": {
+    "audio_file_path": "/path/to/generated/audio.mp3",  // 生成的音频文件路径（服务器本地路径）
+    "audio_data": "base64编码的音频数据",               // 音频文件的base64编码
+    "format": "mp3",                                   // 音频格式
+    "processing_time": "1.25秒"                         // 处理时间
+  }
+}
+```
+
+- **错误响应**:
+
+```json
+{
+  "status": "error",
+  "message": "错误信息"
+}
+```
+
+可能的错误情况包括：
+- 无效的请求数据
+- 缺少文本数据 (input 字段)
+- input 字段必须是非空字符串
+- voice 字段必须是字符串
+- response_format 字段必须是以下之一: mp3, wav, ogg, flac
+- 语音样本文件不存在
+- Fish-Speech API请求失败（连接问题、服务不可用等）
 
 ### 使用curl发送TTS请求
 
@@ -233,11 +262,16 @@ curl -X POST http://localhost:5000/api/v1/fish-speech \
     "input": "你好，这是一段使用FishSpeech-1.5模型生成的一段TTS语言，该语音特点为音色稳定，适合作为日常播放使用的音频。",
     "voice": "/path/to/voice_sample.wav",
     "response_format": "mp3"
-  }' \
-  --output output.mp3
+  }' > response.json
 ```
 
-注意：Fish-Speech API直接返回音频数据（非JSON格式），因此使用`--output`参数将结果保存为音频文件。
+然后你可以从响应中提取base64音频数据并保存为文件：
+
+```bash
+cat response.json | jq -r '.data.audio_data' | base64 --decode > output.mp3
+```
+
+或者直接使用响应中的本地文件路径进行试听。
 
 ## 使用示例
 
@@ -436,18 +470,68 @@ VoicePlatform-Tea-macmini-Stereo/
 
 ## 版本更新说明
 
-### 2023.03.26 更新
+### 2023.03.30 更新
 
-1. **新增Fish-Speech API支持**:
+1. **修复Fish-Speech API二进制响应处理**:
+   - 修复了Fish-Speech API响应处理逻辑，正确识别并处理二进制音频数据
+   - 移除了错误的base64解码尝试，避免"string argument should contain only ASCII characters"错误
+   - 优化了响应错误信息显示，限制错误文本长度，防止日志过长
+   - 添加了二进制数据到base64的正确转换流程，确保API响应格式一致性
+
+2. **错误处理增强**:
+   - 改进了异常处理，加入了更多健全性检查
+   - 优化了错误消息格式，提供更清晰的问题描述
+   - 在错误信息中添加了更多上下文，便于排查问题
+
+### 2023.03.29 更新
+
+1. **优化中文显示**:
+   - 修复了日志和API响应中的中文编码问题，使中文正确显示而不是Unicode转义序列
+   - 改进了Flask JSON序列化配置，确保API响应中的中文字符直接可读
+   - 优化了日志记录模块，提高了中文日志的可读性
+   - 增强了文本预览功能，使日志中的中文文本内容更加友好
+
+2. **日志系统增强**:
+   - 改进了请求与响应的日志记录格式
+   - 增加了更多有用的上下文信息到日志中
+   - 优化了大型二进制数据的日志处理，提高日志文件的可读性和效率
+
+### 2023.03.28 更新
+
+1. **修复并优化Fish-Speech API**:
+   - 修复了配置加载问题，解决了API URL为None导致的错误
+   - 添加了新的`get_nested`方法，支持多级配置访问，如`tts.fish_speech.api_url`
+   - 增强了错误处理和日志记录，包括详细的错误信息和堆栈跟踪
+   - 添加了请求参数验证，防止无效请求导致服务器错误
+   - 添加了处理时间统计，便于性能监控
+
+2. **增强的响应格式**:
+   - 在JSON响应中增加了处理时间信息
+   - 添加了详细的错误响应格式，提供更清晰的错误信息
+   - 改进了响应日志记录，不再记录完整的音频数据，只记录长度
+
+3. **安全性增强**:
+   - 添加了更严格的参数验证
+   - 添加了文件存在性检查，避免访问不存在的文件
+   - 添加了base64编码验证，确保返回的数据是有效的base64
+
+### 2023.03.27 更新
+
+1. **改进Fish-Speech API**:
+   - 修改了Fish-Speech API的响应格式，现在返回JSON格式的响应，包含本地文件路径和base64编码的音频数据
+   - 添加了自动将生成的音频保存到本地文件的功能，便于直接试听和测试
+   - 更新了API文档和使用示例，展示如何从响应中提取数据
+
+2. **新增Fish-Speech API支持**:
    - 添加了全新的`/api/v1/fish-speech`接口，支持使用FishSpeech-1.5模型进行文本转语音
    - 新接口支持语音克隆功能，可通过提供语音样本(`voice`参数)来模仿特定声音
    - 简化的响应格式，直接返回base64编码的音频数据
 
-2. **配置增强**:
+3. **配置增强**:
    - 在`config.yaml`中添加了`tts.fish_speech`配置节，支持自定义API URL和默认响应格式
    - 所有配置都可通过修改配置文件进行自定义，无需修改代码
 
-3. **改进的文档**:
+4. **改进的文档**:
    - 更新了API文档，新增了Fish-Speech API的接口说明和使用示例
    - 添加了curl示例，展示如何调用新API并保存结果
 

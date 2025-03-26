@@ -25,6 +25,10 @@ config = ConfigLoader()
 app = Flask(__name__)
 CORS(app)  # 启用CORS支持
 
+# 设置JSON配置，确保中文直接显示为UTF-8字符而不是Unicode转义序列
+app.config['JSON_AS_ASCII'] = False
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+
 # 配置
 app.config['MAX_CONTENT_LENGTH'] = config.get_max_content_length() * 1024 * 1024  # 根据配置设置最大上传大小
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()  # 使用系统临时目录
@@ -44,6 +48,25 @@ audio_processor = AudioProcessor(temp_manager=temp_manager, logger=logger)
 
 # 初始化TTS引擎
 tts_engine = TTSEngine(logger=logger)
+
+# 确保json输出中文时不会被转义
+def json_dumps_ensure_ascii_false(obj):
+    return json.dumps(obj, ensure_ascii=False)
+
+# 配置Flask应用json序列化方法 - 旧方法不适用于当前Flask版本
+# app.json.dumps = json_dumps_ensure_ascii_false  # 这行会导致错误
+
+# 使用兼容旧版本Flask的配置方式
+from flask.json import JSONEncoder
+
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        return super().default(obj)
+        
+    def encode(self, obj):
+        return json.dumps(obj, ensure_ascii=False)
+
+app.json_encoder = CustomJSONEncoder
 
 @app.route('/api/v1/asr', methods=['POST'])
 def asr_json():
@@ -550,17 +573,26 @@ def text_to_speech():
 def fish_speech():
     """使用Fish-Speech-1.5模型进行文本转语音"""
     try:
+        start_time = time.time()
         data = request.get_json()
         
         # 记录请求信息
         logger.log_request(data, '/api/v1/fish-speech')
         
-        if not data or 'input' not in data:
+        if not data:
             error_response = {
                 'status': 'error',
-                'message': '缺少文本数据'
+                'message': '无效的请求数据'
             }
-            logger.error(f"请求错误: 缺少文本数据")
+            logger.error(f"请求错误: 无效的请求数据")
+            return jsonify(error_response), 400
+        
+        if 'input' not in data:
+            error_response = {
+                'status': 'error',
+                'message': '缺少文本数据 (input 字段)'
+            }
+            logger.error(f"请求错误: 缺少文本数据 (input 字段)")
             return jsonify(error_response), 400
         
         # 获取参数
@@ -568,18 +600,72 @@ def fish_speech():
         voice = data.get('voice', None)
         response_format = data.get('response_format', 'mp3')
         
-        logger.info(f"Fish-Speech请求: {text[:50]}...")
+        # 验证参数
+        if not text or not isinstance(text, str):
+            error_response = {
+                'status': 'error',
+                'message': 'input 字段必须是非空字符串'
+            }
+            logger.error(f"请求错误: input 字段必须是非空字符串")
+            return jsonify(error_response), 400
+        
+        if voice and not isinstance(voice, str):
+            error_response = {
+                'status': 'error',
+                'message': 'voice 字段必须是字符串'
+            }
+            logger.error(f"请求错误: voice 字段必须是字符串")
+            return jsonify(error_response), 400
+        
+        if not isinstance(response_format, str) or response_format not in ['mp3', 'wav', 'ogg', 'flac']:
+            error_response = {
+                'status': 'error',
+                'message': 'response_format 字段必须是以下之一: mp3, wav, ogg, flac'
+            }
+            logger.error(f"请求错误: 无效的 response_format: {response_format}")
+            return jsonify(error_response), 400
+        
+        # 直接显示请求文本的前50个字符，确保中文正确显示
+        text_preview = text[:50] + "..." if len(text) > 50 else text
+        logger.info(f"Fish-Speech请求: text={text_preview}, voice={voice}, response_format={response_format}")
         
         try:
             # 调用Fish-Speech引擎
-            audio_data_base64 = tts_engine.fish_speech(
+            audio_file_path, audio_data_base64 = tts_engine.fish_speech(
                 text=text,
                 voice=voice,
                 response_format=response_format
             )
             
-            # 直接返回base64编码的音频数据，不包含JSON包装
-            return audio_data_base64
+            # 计算处理时间
+            process_time = time.time() - start_time
+            
+            # 返回JSON格式的响应
+            response_data = {
+                'status': 'success',
+                'data': {
+                    'audio_file_path': audio_file_path,
+                    'audio_data': audio_data_base64,
+                    'format': response_format,
+                    'processing_time': f"{process_time:.2f}秒"
+                }
+            }
+            
+            # 记录响应信息，但不包含完整的audio_data
+            log_response = {
+                'status': 'success',
+                'data': {
+                    'audio_file_path': audio_file_path,
+                    'format': response_format,
+                    'audio_data_length': len(audio_data_base64),
+                    'processing_time': f"{process_time:.2f}秒"
+                }
+            }
+            logger.log_response(log_response, '/api/v1/fish-speech')
+            
+            logger.info(f"Fish-Speech转换成功: 处理时间={process_time:.2f}秒, 音频文件路径={audio_file_path}")
+            
+            return jsonify(response_data)
             
         except Exception as e:
             error_response = {
@@ -587,14 +673,20 @@ def fish_speech():
                 'message': f'Fish-Speech转换失败: {str(e)}'
             }
             logger.error(f"Fish-Speech转换失败: {str(e)}")
+            # 记录堆栈跟踪
+            import traceback
+            logger.error(traceback.format_exc())
             return jsonify(error_response), 500
         
     except Exception as e:
         error_response = {
             'status': 'error',
-            'message': str(e)
+            'message': f'处理请求失败: {str(e)}'
         }
         logger.error(f"处理请求失败: {str(e)}")
+        # 记录堆栈跟踪
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify(error_response), 500
 
 @app.route('/health', methods=['GET'])
