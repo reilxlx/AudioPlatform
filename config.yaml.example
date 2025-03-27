@@ -1,0 +1,50 @@
+# ASR平台配置文件
+
+# 环境配置
+environment:
+  # 模型文件路径
+  model_dir: 'whisper模型路径'
+  hf_home: '自定义hf下载目录'
+
+# API认证信息
+auth:
+  # Hugging Face API token - 用于访问pyannote/speaker-diarization模型
+  hf_token: ''
+
+# ASR配置
+asr:
+  # 默认语言
+  default_language: 'zh'
+  # Whisper模型大小 ['tiny', 'base', 'small', 'medium', 'large']
+  model_size: 'medium'
+  # 批处理大小
+  batch_size: 8
+  # 固定说话人数量
+  num_speakers: 2
+
+# TTS配置
+tts:
+  # Fish-Speech配置
+  fish_speech:
+    # Fish-Speech API URL
+    api_url: 'http://localhost:9997/v1/audio/speech'
+    # 默认响应格式
+    default_format: 'mp3'
+
+# 临时文件管理
+temp_files:
+  # 是否在任务完成后自动清理临时文件
+  auto_cleanup: false
+  # 临时文件保留时间（小时）
+  retention_hours: 24
+
+# 服务器配置
+server:
+  # 最大上传内容大小（MB）
+  max_content_length: 50
+  # 服务器主机
+  host: '0.0.0.0'
+  # 服务器端口
+  port: 5001
+  # 是否开启调试模式
+  debug: true 
