@@ -2,10 +2,11 @@
 *.mp3
 *.m4a
 *.json
-*.txt
 *.yaml
 *.md
 *.pyc
+*.txt
+!requirements.txt
 
 # 忽略特定目录
 /logs/
