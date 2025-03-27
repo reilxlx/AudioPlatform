@@ -83,6 +83,46 @@ curl -X POST http://localhost:5001/api/v1/fish-speech \
   }'
 ```
 
+### FishSpeech-1.5模型部署
+
+FishSpeech-1.5模型需要使用Xinference进行本地部署，步骤如下：
+
+1. 安装Xinference：
+```bash
+pip install "xinference[all]"
+```
+
+2. 启动Xinference服务器：
+```bash
+XINFERENCE_HOME=/Users/Downloads/xinference xinference-local --host 0.0.0.0 --port 9997
+```
+
+3. 部署FishSpeech-1.5模型：
+```bash
+# 使用命令行部署
+xinference launch --model-name FishSpeech-1.5 --model-type audio
+
+# 或登录xinference-ui，选择FishSpeech-1.5模型，点击部署
+访问 http://0.0.0.0:9997/ui/#/running_models/audio
+```
+
+4. 验证模型是否正常工作：
+```bash
+# 使用curl测试模型
+curl --location 'http://localhost:9997/v1/audio/speech' \
+--header 'Content-Type: application/json' \
+--data '{
+  "model": "FishSpeech-1.5",
+  "input": "你好，这是一段使用FishSpeech-1.5模型生成的一段TTS语音",
+  "voice": "/Users/xinference/tts_output_1742949895.wav",
+  "response_format": "mp3"
+}'
+```
+
+成功部署后，AudioPlatform将调用本地Xinference服务，使用FishSpeech-1.5模型进行语音合成。
+
+xinference具体功能和使用请参考：https://inference.readthedocs.io/zh-cn/latest/index.html
+
 ### 启动服务
 
 1. 安装依赖：
