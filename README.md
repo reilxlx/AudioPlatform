@@ -90,7 +90,8 @@ curl -X POST http://localhost:5001/api/v1/fish-speech \
 pip install -r requirements.txt
 ```
 
-2. 配置系统（可选）：
+2. 配置系统：
+根据实际情况修改config.yaml.example文件，并命名为config.yaml
 ```bash
 cp config.yaml.example config.yaml
 # 编辑 config.yaml 文件配置相关参数
