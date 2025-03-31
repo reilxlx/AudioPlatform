@@ -270,7 +270,7 @@ class TTSEngine:
             log_request_data = {
                 "model": "ChatTTS",
                 "input": text[:50] + ("..." if len(text) > 50 else ""),
-                "voice": f"{type(voice_data)}, 长度: {len(str(voice_data)) if voice_data else 0}",
+                "voice": self._format_voice_data(voice_data),
                 "response_format": response_format
             }
             self.logger.info(f"Xinference ChatTTS请求数据: {json.dumps(log_request_data, ensure_ascii=False)}")
@@ -329,3 +329,23 @@ class TTSEngine:
         except Exception as e:
             self.logger.error(f"Xinference ChatTTS文本转语音失败: {str(e)}")
             raise
+
+    def _format_voice_data(self, voice_data):
+        """格式化 voice 数据以便于日志显示，显示最前和最后的 50 个字符
+        
+        Args:
+            voice_data: 音色数据
+            
+        Returns:
+            str: 格式化后的音色数据描述
+        """
+        if voice_data is None:
+            return "None"
+            
+        voice_str = str(voice_data)
+        total_len = len(voice_str)
+        
+        if total_len <= 100:
+            return voice_str
+        else:
+            return f"{voice_str[:200]}...{voice_str[-200:]} (总长度: {total_len})"
