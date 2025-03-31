@@ -689,6 +689,119 @@ def fish_speech():
         logger.error(traceback.format_exc())
         return jsonify(error_response), 500
 
+@app.route('/api/v1/xinference-chat-tts', methods=['POST'])
+def xinference_chat_tts():
+    """使用xinference部署的ChatTTS模型进行文本转语音"""
+    try:
+        start_time = time.time()
+        data = request.get_json()
+        
+        # 记录请求信息
+        logger.log_request(data, '/api/v1/xinference-chat-tts')
+        
+        if not data:
+            error_response = {
+                'status': 'error',
+                'message': '无效的请求数据'
+            }
+            logger.error(f"请求错误: 无效的请求数据")
+            return jsonify(error_response), 400
+        
+        if 'input' not in data:
+            error_response = {
+                'status': 'error',
+                'message': '缺少文本数据 (input 字段)'
+            }
+            logger.error(f"请求错误: 缺少文本数据 (input 字段)")
+            return jsonify(error_response), 400
+        
+        # 获取参数
+        text = data['input']
+        voice = data.get('voice', '2155')  # 默认使用2155音色
+        response_format = data.get('response_format', 'mp3')
+        
+        # 验证参数
+        if not text or not isinstance(text, str):
+            error_response = {
+                'status': 'error',
+                'message': 'input 字段必须是非空字符串'
+            }
+            logger.error(f"请求错误: input 字段必须是非空字符串")
+            return jsonify(error_response), 400
+        
+        if voice and not isinstance(voice, (str, dict)):
+            error_response = {
+                'status': 'error',
+                'message': 'voice 字段必须是字符串或字典'
+            }
+            logger.error(f"请求错误: voice 字段必须是字符串或字典")
+            return jsonify(error_response), 400
+        
+        if not isinstance(response_format, str) or response_format not in ['mp3', 'wav', 'ogg', 'flac']:
+            error_response = {
+                'status': 'error',
+                'message': 'response_format 字段必须是以下之一: mp3, wav, ogg, flac'
+            }
+            logger.error(f"请求错误: 无效的 response_format: {response_format}")
+            return jsonify(error_response), 400
+        
+        # 直接显示请求文本的前50个字符，确保中文正确显示
+        text_preview = text[:50] + "..." if len(text) > 50 else text
+        voice_preview = voice if isinstance(voice, str) else "自定义音色数据"
+        logger.info(f"Xinference ChatTTS请求: text={text_preview}, voice={voice_preview}, response_format={response_format}")
+        
+        try:
+            # 调用Xinference ChatTTS引擎
+            audio_file_path, audio_data_base64 = tts_engine.xinference_chat_tts(
+                text=text,
+                voice=voice,
+                response_format=response_format
+            )
+            
+            # 计算处理时间
+            process_time = time.time() - start_time
+            
+            # 返回JSON格式的响应
+            response_data = {
+                'status': 'success',
+                'data': {
+                    'audio_file_path': audio_file_path,
+                    'audio_data': audio_data_base64,
+                    'format': response_format,
+                    'processing_time': f"{process_time:.2f}秒"
+                }
+            }
+            
+            # 记录响应信息，但不包含完整的audio_data
+            log_response = {
+                'status': 'success',
+                'data': {
+                    'audio_file_path': audio_file_path,
+                    'format': response_format,
+                    'audio_data_length': len(audio_data_base64),
+                    'processing_time': f"{process_time:.2f}秒"
+                }
+            }
+            logger.log_response(log_response, '/api/v1/xinference-chat-tts')
+            
+            return jsonify(response_data)
+            
+        except Exception as e:
+            error_response = {
+                'status': 'error',
+                'message': f'Xinference ChatTTS文本转语音失败: {str(e)}'
+            }
+            logger.error(f"Xinference ChatTTS文本转语音失败: {str(e)}")
+            return jsonify(error_response), 500
+            
+    except Exception as e:
+        error_response = {
+            'status': 'error',
+            'message': str(e)
+        }
+        logger.error(f"处理请求失败: {str(e)}")
+        return jsonify(error_response), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """健康检查接口"""
