@@ -19,6 +19,7 @@ AudioPlatform定位提供语音识别(ASR)和文本转语音(TTS)功能，支持
 ### 文本转语音功能 (TTS)
 - 支持多种TTS模型（chatts、fish-speech）
 - 支持语音克隆功能（通过Fish-Speech模型）
+- 可定制化语音风格和音色
 
 ### 系统特性
 - 支持HTTP+JSON和HTTP+form-data两种接口形式
@@ -61,6 +62,7 @@ curl -X POST http://localhost:5001/api/v1/asr/upload \
 
 ### 文本转语音 API
 
+#### 标准ChatTTS文本转语音
 ```bash
 # 标准TTS请求
 curl -X POST http://localhost:5001/api/v1/tts \
@@ -71,19 +73,40 @@ curl -X POST http://localhost:5001/api/v1/tts \
     "top_p": 0.7,
     "top_k": 20
   }'
+```
 
-# Fish-Speech TTS请求（支持语音克隆）
+#### Fish-Speech文本转语音 (支持语音克隆)
+```bash
+# Fish-Speech TTS请求
 curl -X POST http://localhost:5001/api/v1/fish-speech \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "FishSpeech-1.5",
     "input": "要转换的文本内容",
     "voice": "/path/to/voice_sample.wav",
+    "voice_txt": "声音样本中说的文字内容",
     "response_format": "mp3"
   }'
 ```
 
-### FishSpeech-1.5模型部署
+请求参数说明：
+- `input`: 要转换为语音的文本内容
+- `voice`: 语音样本文件路径（用于声音克隆）
+- `voice_txt`: 语音样本中的文本内容（提供此参数可以提高声音克隆的质量）
+- `response_format`: 输出音频格式，支持 "mp3"、"wav"、"ogg"、"flac"
+
+#### Xinference ChatTTS文本转语音
+```bash
+# Xinference ChatTTS请求
+curl -X POST http://localhost:5001/api/v1/xinference-chat-tts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "要转换的文本内容",
+    "voice": "2155",
+    "response_format": "mp3"
+  }'
+```
+
+### FishSpeech-1.5模型部署与使用
 
 FishSpeech-1.5模型需要使用Xinference进行本地部署，步骤如下：
 
@@ -114,14 +137,13 @@ curl --location 'http://localhost:9997/v1/audio/speech' \
 --data '{
   "model": "FishSpeech-1.5",
   "input": "你好，这是一段使用FishSpeech-1.5模型生成的一段TTS语音",
-  "voice": "/Users/xinference/tts_output_1742949895.wav",
+  "voice": "/path/to/voice_sample.wav",
+  "voice_txt": "声音样本中说的文字内容，提供这个参数可以提高声音克隆的效果",
   "response_format": "mp3"
 }'
 ```
 
-成功部署后，AudioPlatform将调用本地Xinference服务，使用FishSpeech-1.5模型进行语音合成。
-
-xinference具体功能和使用请参考：https://inference.readthedocs.io/zh-cn/latest/index.html
+Xinference详细功能和使用请参考：https://inference.readthedocs.io/zh-cn/latest/index.html
 
 ### 启动服务
 
@@ -146,4 +168,3 @@ python app.py
 ```bash
 gunicorn -w 4 -b 0.0.0.0:5001 app:app
 ```
-
