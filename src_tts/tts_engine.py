@@ -114,12 +114,13 @@ class TTSEngine:
             self.logger.error(f"文本转语音失败: {str(e)}")
             raise
             
-    def fish_speech(self, text, voice=None, response_format="mp3"):
+    def fish_speech(self, text, voice=None, voice_txt=None, response_format="mp3"):
         """使用Fish-Speech-1.5模型将文本转换为语音
         
         Args:
             text (str): 要转换的文本
             voice (str, optional): 语音样本的路径，用于克隆声音
+            voice_txt (str, optional): 提示文本，用作prompt_text
             response_format (str, optional): 返回音频的格式，默认为mp3
             
         Returns:
@@ -141,18 +142,45 @@ class TTSEngine:
                 "response_format": response_format
             }
             
-            # 如果提供了声音样本，添加到请求中
+            # 如果提供了voice_txt，添加到请求中作为prompt_text
+            if voice_txt:
+                self.logger.info(f"使用提供的prompt_text: {voice_txt[:50]}...")
+                request_data["prompt_text"] = voice_txt
+            
+            # 如果提供了声音样本，处理相关字段
+            cross_lingual_prompt = None
             if voice:
                 # 检查声音样本文件是否存在
                 import os
                 if not os.path.exists(voice):
                     self.logger.warning(f"声音样本文件不存在: {voice}，将使用默认音色")
                 else:
-                    request_data["voice"] = voice
+                    # 读取音频文件作为prompt_speech
+                    try:
+                        self.logger.info(f"读取音频文件作为prompt_speech: {voice}")
+                        with open(voice, "rb") as f:
+                            cross_lingual_prompt = f.read()
+                        
+                        # 添加prompt_speech到请求数据
+                        if cross_lingual_prompt:
+                            self.logger.info(f"已读取音频文件，大小: {len(cross_lingual_prompt)} 字节")
+                            request_data["prompt_speech"] = cross_lingual_prompt
+                            # 注意：这里我们不设置voice字段，因为我们直接使用prompt_speech
+                        else:
+                            self.logger.warning(f"读取音频文件为空: {voice}")
+                    except Exception as e:
+                        self.logger.error(f"读取音频文件失败: {str(e)}")
+                        # 如果读取失败但文件存在，仍然设置voice字段（兼容原有行为）
+                        request_data["voice"] = voice
                 
+            # 日志记录请求数据（不包含二进制数据）
+            log_request_data = request_data.copy()
+            if "prompt_speech" in log_request_data:
+                log_request_data["prompt_speech"] = f"<二进制数据，长度: {len(cross_lingual_prompt)} 字节>"
+            
             self.logger.info(f"请求Fish-Speech API: {api_url}")
             # 使用ensure_ascii=False确保中文能够正确显示而不是Unicode转义序列
-            self.logger.info(f"请求数据: {json.dumps(request_data, ensure_ascii=False)}")
+            self.logger.info(f"请求数据: {json.dumps(log_request_data, ensure_ascii=False)}")
             
             # 发送请求
             try:

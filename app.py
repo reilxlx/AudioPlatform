@@ -598,6 +598,7 @@ def fish_speech():
         # 获取参数
         text = data['input']
         voice = data.get('voice', None)
+        voice_txt = data.get('voice_txt', None)  # 新增 voice_txt 字段
         response_format = data.get('response_format', 'mp3')
         
         # 验证参数
@@ -617,6 +618,14 @@ def fish_speech():
             logger.error(f"请求错误: voice 字段必须是字符串")
             return jsonify(error_response), 400
         
+        if voice_txt and not isinstance(voice_txt, str):
+            error_response = {
+                'status': 'error',
+                'message': 'voice_txt 字段必须是字符串'
+            }
+            logger.error(f"请求错误: voice_txt 字段必须是字符串")
+            return jsonify(error_response), 400
+        
         if not isinstance(response_format, str) or response_format not in ['mp3', 'wav', 'ogg', 'flac']:
             error_response = {
                 'status': 'error',
@@ -627,13 +636,15 @@ def fish_speech():
         
         # 直接显示请求文本的前50个字符，确保中文正确显示
         text_preview = text[:50] + "..." if len(text) > 50 else text
-        logger.info(f"Fish-Speech请求: text={text_preview}, voice={voice}, response_format={response_format}")
+        voice_txt_preview = voice_txt[:50] + "..." if voice_txt and len(voice_txt) > 50 else voice_txt
+        logger.info(f"Fish-Speech请求: text={text_preview}, voice={voice}, voice_txt={voice_txt_preview}, response_format={response_format}")
         
         try:
             # 调用Fish-Speech引擎
             audio_file_path, audio_data_base64 = tts_engine.fish_speech(
                 text=text,
                 voice=voice,
+                voice_txt=voice_txt,  # 传递 voice_txt 参数
                 response_format=response_format
             )
             
