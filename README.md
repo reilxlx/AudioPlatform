@@ -75,7 +75,7 @@ curl -X POST http://localhost:5001/api/v1/tts \
   }'
 ```
 
-#### Fish-Speech文本转语音 (支持语音克隆)
+#### Fish-Speech文本转语音 (支持语音克隆，克隆效果好于ChatTTS，推荐该方案)
 ```bash
 # Fish-Speech TTS请求
 curl -X POST http://localhost:5001/api/v1/fish-speech \
