@@ -127,31 +127,47 @@ class TTSEngine:
             tuple: (本地保存的音频文件路径, base64编码的音频数据)
         """
         try:
-            # 获取Fish-Speech API配置
-            api_url = self.config.get_nested('tts.fish_speech.api_url')
+            # 记录开始时间
+            start_time = time.time()
+            self.logger.info(f"开始使用FishSpeech-1.5模型进行文本转语音")
+
+            # 导入xinference客户端
+            from xinference.client import Client
+            
+            # 获取FishSpeech API配置
+            api_url = self.config.get_nested('tts.fish_speech.api_url_direct')
             if not api_url:
-                api_url = 'http://localhost:9997/v1/audio/speech'
+                api_url = 'http://0.0.0.0:9997'
                 self.logger.warning(f"未找到Fish-Speech API URL配置，使用默认值: {api_url}")
             
-            self.logger.info(f"使用Fish-Speech API: {api_url}")
+            self.logger.info(f"连接到Xinference服务: {api_url}")
             
-            # 构建请求数据
-            request_data = {
-                "model": "FishSpeech-1.5",
-                "input": text,
-                "response_format": response_format
-            }
+            # 初始化客户端
+            client = Client(api_url)
+            
+            # 获取FishSpeech-1.5模型
+            try:
+                model = client.get_model("FishSpeech-1.5")
+                self.logger.info("成功获取FishSpeech-1.5模型")
+            except Exception as e:
+                error_msg = f"获取FishSpeech-1.5模型失败: {str(e)}"
+                self.logger.error(error_msg)
+                raise Exception(error_msg)
+            
+            # 准备参数
+            params = {}
             
             # 如果提供了voice_txt，添加到请求中作为prompt_text
             if voice_txt:
                 self.logger.info(f"使用提供的prompt_text: {voice_txt[:50]}...")
-                request_data["prompt_text"] = voice_txt
+                params["prompt_text"] = voice_txt
+            
+            # 声明reference_audio变量
+            reference_audio = None
             
             # 如果提供了声音样本，处理相关字段
-            cross_lingual_prompt = None
             if voice:
                 # 检查声音样本文件是否存在
-                import os
                 if not os.path.exists(voice):
                     self.logger.warning(f"声音样本文件不存在: {voice}，将使用默认音色")
                 else:
@@ -159,55 +175,43 @@ class TTSEngine:
                     try:
                         self.logger.info(f"读取音频文件作为prompt_speech: {voice}")
                         with open(voice, "rb") as f:
-                            cross_lingual_prompt = f.read()
+                            reference_audio = f.read()
                         
-                        # 添加prompt_speech到请求数据
-                        if cross_lingual_prompt:
-                            self.logger.info(f"已读取音频文件，大小: {len(cross_lingual_prompt)} 字节")
-                            request_data["prompt_speech"] = cross_lingual_prompt
-                            # 注意：这里我们不设置voice字段，因为我们直接使用prompt_speech
+                        # 添加prompt_speech到请求参数
+                        if reference_audio:
+                            self.logger.info(f"已读取音频文件，大小: {len(reference_audio)} 字节")
+                            params["prompt_speech"] = reference_audio
                         else:
                             self.logger.warning(f"读取音频文件为空: {voice}")
                     except Exception as e:
                         self.logger.error(f"读取音频文件失败: {str(e)}")
-                        # 如果读取失败但文件存在，仍然设置voice字段（兼容原有行为）
-                        request_data["voice"] = voice
-                
-            # 日志记录请求数据（不包含二进制数据）
-            log_request_data = request_data.copy()
-            if "prompt_speech" in log_request_data:
-                log_request_data["prompt_speech"] = f"<二进制数据，长度: {len(cross_lingual_prompt)} 字节>"
             
-            self.logger.info(f"请求Fish-Speech API: {api_url}")
-            # 使用ensure_ascii=False确保中文能够正确显示而不是Unicode转义序列
-            self.logger.info(f"请求数据: {json.dumps(log_request_data, ensure_ascii=False)}")
+            # 生成语音
+            self.logger.info(f"调用FishSpeech-1.5模型生成语音, 文本长度: {len(text)}")
+            params_log = []
+            for k, v in params.items():
+                if k == "prompt_speech":
+                    params_log.append(f"{k}: <二进制数据>")
+                else:
+                    params_log.append(f"{k}: {str(v)[:50]}")
+            self.logger.info(f"请求参数: {', '.join(params_log)}")
             
-            # 发送请求
             try:
-                response = requests.post(api_url, json=request_data, timeout=300)
-            except requests.exceptions.RequestException as e:
-                error_msg = f"请求Fish-Speech API失败: {str(e)}"
+                # 直接调用model.speech方法
+                audio_binary = model.speech(text, **params)
+                self.logger.info(f"FishSpeech-1.5模型成功生成语音, 数据大小: {len(audio_binary) if audio_binary else 0} 字节")
+            except Exception as e:
+                error_msg = f"调用FishSpeech-1.5模型生成语音失败: {str(e)}"
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
-            
-            # 检查响应状态
-            if response.status_code != 200:
-                error_msg = f"Fish-Speech API请求失败，状态码: {response.status_code}, 响应内容: {response.text[:200] if hasattr(response, 'text') else '无文本响应'}"
-                self.logger.error(error_msg)
-                raise Exception(error_msg)
-            
-            # 获取二进制音频数据
-            audio_binary = response.content
             
             # 检查返回的二进制数据
             if not audio_binary or len(audio_binary) < 100:  # 简单检查返回数据是否有效
-                error_msg = f"Fish-Speech API返回的数据无效，长度: {len(audio_binary) if audio_binary else 0}"
+                error_msg = f"FishSpeech-1.5模型返回的数据无效，长度: {len(audio_binary) if audio_binary else 0}"
                 self.logger.error(error_msg)
                 raise Exception(error_msg)
             
             # 生成输出文件路径
-            import os
-            import tempfile
             temp_dir = os.path.join("temp_files", "fish_speech")
             os.makedirs(temp_dir, exist_ok=True)
             output_path = os.path.join(temp_dir, f"fish_speech_output_{int(time.time())}.{response_format}")
@@ -225,14 +229,18 @@ class TTSEngine:
             # 将二进制数据转换为base64编码以便JSON响应
             audio_base64 = base64.b64encode(audio_binary).decode('utf-8')
             
-            self.logger.info(f"Fish-Speech文本转语音成功，音频已保存到: {output_path}")
+            # 计算处理时间
+            process_time = time.time() - start_time
+            
+            self.logger.info(f"FishSpeech-1.5文本转语音成功，音频已保存到: {output_path}")
             self.logger.info(f"转换的文本内容: {text[:50]}...")
+            self.logger.info(f"处理时间: {process_time:.2f}秒")
             self.logger.info(f"已生成base64编码，编码长度: {len(audio_base64)}")
             
             return output_path, audio_base64
             
         except Exception as e:
-            self.logger.error(f"Fish-Speech文本转语音失败: {str(e)}")
+            self.logger.error(f"FishSpeech-1.5文本转语音失败: {str(e)}")
             raise
     
     def xinference_chat_tts(self, text, voice="2155", response_format="mp3"):

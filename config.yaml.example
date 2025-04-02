@@ -28,6 +28,7 @@ tts:
   fish_speech:
     # Fish-Speech API URL
     api_url: 'http://localhost:9997/v1/audio/speech'
+    api_url_direct: 'http://0.0.0.0:9997'
     # 默认响应格式
     default_format: 'mp3'
 
