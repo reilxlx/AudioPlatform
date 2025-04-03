@@ -22,6 +22,14 @@ from utils.config_loader import ConfigLoader
 # 加载配置
 config = ConfigLoader()
 
+# 导入Langfuse并初始化
+from langfuse import Langfuse
+langfuse = Langfuse(
+    secret_key=config.get_langfuse_secret_key(),
+    public_key=config.get_langfuse_public_key(),
+    host=config.get_langfuse_host()
+)
+
 app = Flask(__name__)
 CORS(app)  # 启用CORS支持
 
@@ -572,6 +580,12 @@ def text_to_speech():
 @app.route('/api/v1/fish-speech', methods=['POST'])
 def fish_speech():
     """使用Fish-Speech-1.5模型进行文本转语音"""
+    # 创建Langfuse跟踪
+    trace = langfuse.trace(
+        name="fish-speech-api",
+        metadata={"service": "fish-speech-tts"}
+    )
+    
     try:
         start_time = time.time()
         data = request.get_json()
@@ -579,12 +593,27 @@ def fish_speech():
         # 记录请求信息
         logger.log_request(data, '/api/v1/fish-speech')
         
+        # 在Langfuse中记录请求信息
+        trace_span = trace.span(
+            name="fish-speech-request",
+            input=data
+        )
+        
         if not data:
             error_response = {
                 'status': 'error',
                 'message': '无效的请求数据'
             }
             logger.error(f"请求错误: 无效的请求数据")
+            
+            # 记录失败到Langfuse
+            trace_span.end(
+                output=error_response,
+                status_message="无效的请求数据",
+                level="ERROR"
+            )
+            trace.update(status="failure", status_message="无效的请求数据")
+            
             return jsonify(error_response), 400
         
         if 'input' not in data:
@@ -593,6 +622,15 @@ def fish_speech():
                 'message': '缺少文本数据 (input 字段)'
             }
             logger.error(f"请求错误: 缺少文本数据 (input 字段)")
+            
+            # 记录失败到Langfuse
+            trace_span.end(
+                output=error_response,
+                status_message="缺少文本数据",
+                level="ERROR"
+            )
+            trace.update(status="failure", status_message="缺少文本数据")
+            
             return jsonify(error_response), 400
         
         # 获取参数
@@ -608,6 +646,15 @@ def fish_speech():
                 'message': 'input 字段必须是非空字符串'
             }
             logger.error(f"请求错误: input 字段必须是非空字符串")
+            
+            # 记录失败到Langfuse
+            trace_span.end(
+                output=error_response,
+                status_message="input 字段必须是非空字符串",
+                level="ERROR"
+            )
+            trace.update(status="failure", status_message="input 字段必须是非空字符串")
+            
             return jsonify(error_response), 400
         
         if voice and not isinstance(voice, str):
@@ -616,6 +663,15 @@ def fish_speech():
                 'message': 'voice 字段必须是字符串'
             }
             logger.error(f"请求错误: voice 字段必须是字符串")
+            
+            # 记录失败到Langfuse
+            trace_span.end(
+                output=error_response,
+                status_message="voice 字段必须是字符串",
+                level="ERROR"
+            )
+            trace.update(status="failure", status_message="voice 字段必须是字符串")
+            
             return jsonify(error_response), 400
         
         if voice_txt and not isinstance(voice_txt, str):
@@ -624,6 +680,15 @@ def fish_speech():
                 'message': 'voice_txt 字段必须是字符串'
             }
             logger.error(f"请求错误: voice_txt 字段必须是字符串")
+            
+            # 记录失败到Langfuse
+            trace_span.end(
+                output=error_response,
+                status_message="voice_txt 字段必须是字符串",
+                level="ERROR"
+            )
+            trace.update(status="failure", status_message="voice_txt 字段必须是字符串")
+            
             return jsonify(error_response), 400
         
         if not isinstance(response_format, str) or response_format not in ['mp3', 'wav', 'ogg', 'flac']:
@@ -632,6 +697,15 @@ def fish_speech():
                 'message': 'response_format 字段必须是以下之一: mp3, wav, ogg, flac'
             }
             logger.error(f"请求错误: 无效的 response_format: {response_format}")
+            
+            # 记录失败到Langfuse
+            trace_span.end(
+                output=error_response,
+                status_message="无效的 response_format",
+                level="ERROR"
+            )
+            trace.update(status="failure", status_message="无效的 response_format")
+            
             return jsonify(error_response), 400
         
         # 直接显示请求文本的前50个字符，确保中文正确显示
@@ -639,7 +713,21 @@ def fish_speech():
         voice_txt_preview = voice_txt[:50] + "..." if voice_txt and len(voice_txt) > 50 else voice_txt
         logger.info(f"Fish-Speech请求: text={text_preview}, voice={voice}, voice_txt={voice_txt_preview}, response_format={response_format}")
         
+        # 结束请求跟踪span
+        trace_span.end(
+            output={
+                "text_preview": text_preview, 
+                "voice": voice, 
+                "voice_txt_preview": voice_txt_preview, 
+                "response_format": response_format
+            },
+            status_message="请求验证通过"
+        )
+        
         try:
+            # 创建TTS处理span
+            tts_span = trace.span(name="fish-speech-tts-processing")
+            
             # 调用Fish-Speech引擎
             audio_file_path, audio_data_base64 = tts_engine.fish_speech(
                 text=text,
@@ -650,6 +738,17 @@ def fish_speech():
             
             # 计算处理时间
             process_time = time.time() - start_time
+            
+            # 结束TTS处理span
+            tts_span.end(
+                output={
+                    "audio_file_path": audio_file_path,
+                    "format": response_format,
+                    "audio_data": audio_data_base64,
+                    "processing_time": f"{process_time:.2f}秒"
+                },
+                status_message="TTS处理成功"
+            )
             
             # 返回JSON格式的响应
             response_data = {
@@ -676,6 +775,17 @@ def fish_speech():
             
             logger.info(f"Fish-Speech转换成功: 处理时间={process_time:.2f}秒, 音频文件路径={audio_file_path}")
             
+            # 完成整个跟踪
+            trace.update(
+                status="success",
+                status_message=f"Fish-Speech转换成功，处理时间: {process_time:.2f}秒",
+                metadata={
+                    "processing_time_seconds": process_time,
+                    "audio_format": response_format,
+                    "text_length": len(text)
+                }
+            )
+            
             return jsonify(response_data)
             
         except Exception as e:
@@ -687,6 +797,22 @@ def fish_speech():
             # 记录堆栈跟踪
             import traceback
             logger.error(traceback.format_exc())
+            
+            # 如果存在TTS处理span，则结束它
+            if 'tts_span' in locals():
+                tts_span.end(
+                    output=error_response,
+                    status_message=f"Fish-Speech转换失败: {str(e)}",
+                    level="ERROR"
+                )
+            
+            # 更新跟踪状态
+            trace.update(
+                status="failure",
+                status_message=f"Fish-Speech转换失败: {str(e)}",
+                metadata={"error_details": traceback.format_exc()}
+            )
+            
             return jsonify(error_response), 500
         
     except Exception as e:
@@ -698,6 +824,14 @@ def fish_speech():
         # 记录堆栈跟踪
         import traceback
         logger.error(traceback.format_exc())
+        
+        # 更新跟踪状态
+        trace.update(
+            status="failure",
+            status_message=f"处理请求失败: {str(e)}",
+            metadata={"error_details": traceback.format_exc()}
+        )
+        
         return jsonify(error_response), 500
 
 @app.route('/api/v1/xinference-chat-tts', methods=['POST'])

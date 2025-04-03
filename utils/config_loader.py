@@ -73,6 +73,14 @@ class ConfigLoader:
                     'api_url': 'http://localhost:9997/v1/audio/speech',
                     'default_format': 'mp3'
                 }
+            
+            # 确保Langfuse配置存在
+            if 'langfuse' not in config:
+                config['langfuse'] = {
+                    'secret_key': '',
+                    'public_key': '',
+                    'host': 'https://cloud.langfuse.com'
+                }
                 
             return config
         except Exception as e:
@@ -92,6 +100,11 @@ class ConfigLoader:
                         'api_url': 'http://localhost:9997/v1/audio/speech',
                         'default_format': 'mp3'
                     }
+                },
+                'langfuse': {
+                    'secret_key': '',
+                    'public_key': '',
+                    'host': 'https://cloud.langfuse.com'
                 },
                 'temp_files': {
                     'auto_cleanup': False,
@@ -201,6 +214,30 @@ class ConfigLoader:
             int: 说话人数量
         """
         return self.get('asr', 'num_speakers', 2)
+    
+    def get_langfuse_secret_key(self):
+        """获取Langfuse API密钥
+        
+        Returns:
+            str: Langfuse API密钥
+        """
+        return self.get('langfuse', 'secret_key', '')
+    
+    def get_langfuse_public_key(self):
+        """获取Langfuse公钥
+        
+        Returns:
+            str: Langfuse公钥
+        """
+        return self.get('langfuse', 'public_key', '')
+    
+    def get_langfuse_host(self):
+        """获取Langfuse主机地址
+        
+        Returns:
+            str: Langfuse主机地址
+        """
+        return self.get('langfuse', 'host', 'https://cloud.langfuse.com')
     
     def get_max_content_length(self):
         """获取最大上传内容大小（MB）

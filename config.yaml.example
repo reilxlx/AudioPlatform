@@ -11,6 +11,15 @@ auth:
   # Hugging Face API token - 用于访问pyannote/speaker-diarization模型
   hf_token: ''
 
+# Langfuse 配置
+langfuse:
+  # Langfuse API密钥
+  secret_key: ''
+  # Langfuse 公钥
+  public_key: ''
+  # Langfuse 主机地址
+  host: 'https://cloud.langfuse.com'
+
 # ASR配置
 asr:
   # 默认语言
